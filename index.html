@@ -148,70 +148,64 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<!-- MODAL ENVIO COMPROVANTE COM IA -->
+<!-- MODAL ENVIO PIX -->
 <div id="modComprovante" class="overlay">
   <div class="mbox">
     <div class="modal-handle"></div>
     <button onclick="fecharMod('modComprovante')" style="width:100%;padding:11px;background:#f1f5f9;border:none;border-radius:12px;font-weight:700;cursor:pointer;margin-bottom:14px;color:#475569;font-size:.85rem">✕ Fechar</button>
-    <h3 style="text-align:center;margin:0 0 4px;font-size:1rem;font-weight:800">💸 Enviar Comprovante PIX</h3>
-    <p style="text-align:center;font-size:.72rem;color:#94a3b8;margin:0 0 14px">A IA vai ler o valor automaticamente</p>
+    <h3 style="text-align:center;margin:0 0 4px;font-size:1.1rem;font-weight:800">💸 Registrar Pagamento PIX</h3>
+    <p style="text-align:center;font-size:.72rem;color:#94a3b8;margin:0 0 16px">Preencha o valor e confirme</p>
 
-    <!-- Saldo -->
-    <div style="background:#f0fdf4;border:1.5px solid #10b981;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center">
-      <div style="font-size:.62rem;color:#166534;text-transform:uppercase;font-weight:700;margin-bottom:4px">Seu saldo devedor</div>
-      <div id="modCompSaldo" style="font-size:1.5rem;font-weight:800;color:#dc2626">R$ 0,00</div>
+    <!-- Saldo atual -->
+    <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:16px;text-align:center">
+      <div style="font-size:.62rem;color:#991b1b;text-transform:uppercase;font-weight:700;margin-bottom:4px">Seu saldo devedor atual</div>
+      <div id="modCompSaldo" style="font-size:1.8rem;font-weight:800;color:#dc2626">R$ 0,00</div>
     </div>
 
-    <!-- Inputs ocultos -->
-    <input id="inputCamera" type="file" accept="image/*" capture="environment" style="display:none" onchange="processarFotoComprovante(this)">
-    <input id="inputGaleria" type="file" accept="image/*" style="display:none" onchange="processarFotoComprovante(this)">
-    <input id="inputPDF" type="file" accept="application/pdf" style="display:none" onchange="processarPDFComprovante(this)">
+    <!-- CAMPO VALOR — principal -->
+    <label>💰 Valor do PIX que você está pagando (R$)</label>
+    <input id="compValor" type="number" placeholder="0,00" inputmode="decimal"
+      style="font-size:1.3rem;font-weight:700;text-align:center;margin-bottom:14px;border:2px solid #10b981;border-radius:12px;padding:16px">
 
-    <!-- Opções de envio -->
-    <div id="uploadArea" style="margin-bottom:14px">
-      <div style="font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:10px;text-align:center">Escolha como enviar o comprovante</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <button onclick="document.getElementById('inputCamera').click()" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:14px 6px;cursor:pointer;text-align:center">
-          <div style="font-size:1.4rem">📷</div>
-          <div style="font-size:.65rem;font-weight:700;color:#1e40af;margin-top:4px">Câmera</div>
-        </button>
-        <button onclick="document.getElementById('inputGaleria').click()" style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 6px;cursor:pointer;text-align:center">
-          <div style="font-size:1.4rem">🖼️</div>
-          <div style="font-size:.65rem;font-weight:700;color:#166534;margin-top:4px">Galeria</div>
-        </button>
-        <button onclick="document.getElementById('inputPDF').click()" style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:14px 6px;cursor:pointer;text-align:center">
-          <div style="font-size:1.4rem">📄</div>
-          <div style="font-size:.65rem;font-weight:700;color:#6b21a8;margin-top:4px">PDF</div>
-        </button>
-      </div>
+    <!-- Observação -->
+    <label>📝 Observação (opcional)</label>
+    <input id="compObs" type="text" placeholder="Ex: referente ao mês de março" style="margin-bottom:16px">
+
+    <!-- Comprovante — opcional -->
+    <input id="inputCamera" type="file" accept="image/*" capture="environment" style="display:none" onchange="anexarComprovante(this)">
+    <input id="inputGaleria" type="file" accept="image/*" style="display:none" onchange="anexarComprovante(this)">
+    <input id="inputPDF" type="file" accept="application/pdf" style="display:none" onchange="anexarComprovante(this)">
+
+    <div style="font-size:.65rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:8px">📎 Comprovante (opcional)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <button onclick="document.getElementById('inputCamera').click()" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 6px;cursor:pointer;text-align:center">
+        <div style="font-size:1.2rem">📷</div>
+        <div style="font-size:.62rem;font-weight:700;color:#1e40af;margin-top:3px">Câmera</div>
+      </button>
+      <button onclick="document.getElementById('inputGaleria').click()" style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px 6px;cursor:pointer;text-align:center">
+        <div style="font-size:1.2rem">🖼️</div>
+        <div style="font-size:.62rem;font-weight:700;color:#166534;margin-top:3px">Galeria</div>
+      </button>
+      <button onclick="document.getElementById('inputPDF').click()" style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:12px 6px;cursor:pointer;text-align:center">
+        <div style="font-size:1.2rem">📄</div>
+        <div style="font-size:.62rem;font-weight:700;color:#6b21a8;margin-top:3px">PDF</div>
+      </button>
     </div>
 
-    <!-- Preview da foto -->
-    <div id="previewComp" style="display:none;margin-bottom:14px">
-      <img id="previewImg" style="width:100%;border-radius:12px;max-height:200px;object-fit:cover;margin-bottom:10px">
-      <div id="iaStatus" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;font-size:.8rem;color:#1e40af;text-align:center">
-        🤖 Analisando comprovante...
-      </div>
+    <!-- Preview comprovante anexado -->
+    <div id="compAnexoInfo" style="display:none;background:#f0fdf4;border:1px solid #10b981;border-radius:10px;padding:10px;margin-bottom:14px;font-size:.78rem;color:#166534;display:flex;align-items:center;gap:8px">
+      <span id="compAnexoNome"></span>
+      <button onclick="removerAnexo()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:.8rem;margin-left:auto">✕ Remover</button>
+    </div>
+    <div id="previewImg" style="display:none;margin-bottom:14px">
+      <img id="previewImgEl" style="width:100%;border-radius:12px;max-height:180px;object-fit:cover">
     </div>
 
-    <!-- Valor lido pela IA -->
-    <div id="valorLidoWrap" style="display:none;margin-bottom:14px">
-      <div style="background:#f0fdf4;border:1.5px solid #10b981;border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:.65rem;color:#166534;text-transform:uppercase;font-weight:700;margin-bottom:4px">✅ Valor lido pela IA</div>
-        <div id="valorLido" style="font-size:1.6rem;font-weight:800;color:#16a34a">R$ 0,00</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:4px">Confira se está correto</div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button onclick="confirmarPagamentoIA()" style="flex:1;padding:14px;background:#16a34a;color:#fff;border:none;border-radius:12px;font-weight:800;cursor:pointer;font-size:.85rem">✅ CONFIRMAR</button>
-        <button onclick="resetComprovante()" style="flex:1;padding:14px;background:#f1f5f9;color:#475569;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:.85rem">🔄 Reenviar</button>
-      </div>
-    </div>
-
-    <!-- Erro IA -->
-    <div id="iaErro" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:14px;font-size:.78rem;color:#991b1b;text-align:center"></div>
-
-    <label style="margin-top:4px">Observação (opcional)</label>
-    <input id="compObs" type="text" placeholder="Ex: referente ao mês de março">
+    <!-- BOTÃO CONFIRMAR GRANDE -->
+    <button id="btnConfirmarPix" onclick="confirmarPagamentoIA()"
+      style="width:100%;padding:18px;background:#16a34a;color:#fff;border:none;border-radius:14px;font-weight:800;font-size:1.1rem;cursor:pointer;box-shadow:0 4px 16px rgba(22,163,74,.35);margin-top:4px">
+      ✅ CONFIRMAR PAGAMENTO
+    </button>
   </div>
 </div>
 
@@ -2069,243 +2063,105 @@ function renderAreaFunc(func, dados){
 
 let _valorLidoIA = 0;
 let _fotoBase64  = null;
+let _anexoNome   = null;
 
 function abrirEnvioComprovante(){
-  resetComprovante();
-  document.getElementById('compObs').value='';
+  document.getElementById('compValor').value = '';
+  document.getElementById('compObs').value   = '';
   document.getElementById('modCompSaldo').innerText = fmt(_funcAtual._saldoAtual||0);
-  document.getElementById('modComprovante').classList.add('on');
-}
-
-function resetComprovante(){
-  _valorLidoIA = 0;
-  _fotoBase64  = null;
+  document.getElementById('compAnexoInfo').style.display = 'none';
+  document.getElementById('previewImg').style.display    = 'none';
   ['inputCamera','inputGaleria','inputPDF'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
-  document.getElementById('previewComp').style.display='none';
-  document.getElementById('previewImg').style.display='block';
-  document.getElementById('valorLidoWrap').style.display='none';
-  document.getElementById('valorLido').style.fontSize='1.6rem';
-  document.getElementById('valorLido').style.color='#16a34a';
-  document.getElementById('iaErro').style.display='none';
-  document.getElementById('uploadArea').style.display='block';
-  const vm = document.getElementById('valorManual');
-  if(vm) vm.parentElement.remove();
-  if(_funcAtual) delete _funcAtual._pdfNome;
+  _fotoBase64 = null; _anexoNome = null;
+  document.getElementById('modComprovante').classList.add('on');
+  setTimeout(()=>document.getElementById('compValor').focus(), 300);
 }
 
-function processarFotoComprovante(input){
+function anexarComprovante(input){
   const file = input.files[0];
   if(!file) return;
+  _anexoNome = file.name;
+  document.getElementById('compAnexoNome').innerText = '📎 '+file.name;
+  document.getElementById('compAnexoInfo').style.display = 'flex';
 
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    _fotoBase64 = e.target.result.split(',')[1];
-    const mime  = file.type || 'image/jpeg';
-
-    // Mostra preview
-    document.getElementById('previewImg').src = e.target.result;
-    document.getElementById('previewComp').style.display='block';
-    document.getElementById('uploadArea').style.display='none';
-    document.getElementById('valorLidoWrap').style.display='none';
-    document.getElementById('iaErro').style.display='none';
-    setIaStatus('🤖 Analisando comprovante...','#eff6ff','#bfdbfe','#1e40af');
-
-    try{
-      // Usa Supabase Edge Function como proxy para a API da Anthropic
-      const resp = await supa.functions.invoke('ler-comprovante',{
-        body:{ imageBase64: _fotoBase64, mimeType: mime }
-      });
-
-      if(resp.error) throw new Error(resp.error.message);
-      const valor = parseFloat(resp.data?.valor||'ERRO');
-
-      if(isNaN(valor)){
-        setIaStatus('⚠️ Não consegui ler. Digite o valor manualmente.','#fff4e5','#f59e0b','#92400e');
-        mostrarCampoManual();
-        return;
-      }
-
-      _valorLidoIA = valor;
-      document.getElementById('valorLido').innerText = fmt(_valorLidoIA);
-      setIaStatus('✅ Comprovante lido com sucesso!','#f0fdf4','#10b981','#166534');
-      document.getElementById('valorLidoWrap').style.display='block';
-
-    }catch(err){
-      // Fallback: campo manual
-      setIaStatus('📝 Digite o valor do comprovante abaixo','#fff4e5','#f59e0b','#92400e');
-      mostrarCampoManual();
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-function setIaStatus(txt, bg, border, color){
-  const el = document.getElementById('iaStatus');
-  el.innerText=txt; el.style.background=bg;
-  el.style.borderColor=border; el.style.color=color;
-}
-
-function mostrarCampoManual(){
-  document.getElementById('valorLidoWrap').style.display='block';
-  document.getElementById('valorLido').innerText='';
-  if(!document.getElementById('valorManual')){
-    const wrap = document.getElementById('valorLidoWrap');
-    const div = document.createElement('div');
-    div.style.marginTop='10px';
-    div.innerHTML='<label style="font-size:.65rem;font-weight:700;color:#475569;text-transform:uppercase">Valor do PIX (R$)</label>'
-      +'<input id="valorManual" type="number" placeholder="0,00" style="width:100%;padding:13px;border:1.5px solid #e2e8f0;border-radius:12px;margin-top:4px;font-size:16px;background:#fff">';
-    const botoes = wrap.querySelector('div[style*="display:flex"]');
-    if(botoes) wrap.insertBefore(div, botoes);
-    else wrap.appendChild(div);
+  if(file.type.startsWith('image/')){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      _fotoBase64 = e.target.result;
+      document.getElementById('previewImgEl').src = e.target.result;
+      document.getElementById('previewImg').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
   }
 }
 
-function processarPDFComprovante(input){
-  const file = input.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    const pdfBase64 = e.target.result.split(',')[1];
-
-    // Mostra status
-    document.getElementById('previewImg').style.display='none';
-    document.getElementById('previewComp').style.display='block';
-    document.getElementById('uploadArea').style.display='none';
-    document.getElementById('valorLidoWrap').style.display='none';
-    document.getElementById('iaErro').style.display='none';
-    document.getElementById('iaStatus').innerText='🤖 Analisando PDF... aguarde';
-    document.getElementById('iaStatus').style.background='#fdf4ff';
-    document.getElementById('iaStatus').style.borderColor='#e9d5ff';
-    document.getElementById('iaStatus').style.color='#6b21a8';
-
-    try{
-      const response = await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':'sk-ant-api03-placeholder',
-          'anthropic-dangerous-direct-browser-access':'true',
-          'anthropic-version':'2023-06-01'
-        },
-        body: JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:200,
-          messages:[{
-            role:'user',
-            content:[
-              {type:'document', source:{type:'base64', media_type:'application/pdf', data:pdfBase64}},
-              {type:'text', text:'Este é um comprovante de PIX brasileiro em PDF. Extraia APENAS o valor transferido em reais. Responda SOMENTE com o número, exemplo: 150.00 — sem texto, sem R$, sem explicação. Se não conseguir identificar o valor, responda: ERRO'}
-            ]
-          }]
-        })
-      });
-      const data = await response.json();
-      const texto = (data.content||[]).map(b=>b.text||'').join('').trim();
-
-      if(texto==='ERRO' || isNaN(parseFloat(texto))){
-        document.getElementById('iaStatus').innerText='⚠️ Não consegui ler o PDF. Digite o valor manualmente.';
-        document.getElementById('iaStatus').style.background='#fff4e5';
-        document.getElementById('iaStatus').style.borderColor='#f59e0b';
-        document.getElementById('iaStatus').style.color='#92400e';
-        // Campo manual como fallback
-        document.getElementById('valorLidoWrap').style.display='block';
-        document.getElementById('valorLido').innerText='';
-        if(!document.getElementById('valorManual')){
-          const wrap = document.getElementById('valorLidoWrap');
-          const div = document.createElement('div');
-          div.style.marginTop='10px';
-          div.innerHTML='<label style="font-size:.65rem;font-weight:700;color:#475569;text-transform:uppercase">Valor do PIX (R$)</label>'
-            +'<input id="valorManual" type="number" placeholder="0,00" style="width:100%;padding:13px;border:1.5px solid #e2e8f0;border-radius:12px;margin-top:4px;font-size:15px;background:#fff">';
-          wrap.insertBefore(div, wrap.querySelector('div[style*="display:flex"]'));
-        }
-        return;
-      }
-
-      _valorLidoIA = parseFloat(texto);
-      document.getElementById('valorLido').innerText = fmt(_valorLidoIA);
-      document.getElementById('iaStatus').innerText='✅ PDF lido com sucesso!';
-      document.getElementById('iaStatus').style.background='#f0fdf4';
-      document.getElementById('iaStatus').style.borderColor='#10b981';
-      document.getElementById('iaStatus').style.color='#166534';
-      document.getElementById('valorLidoWrap').style.display='block';
-
-    }catch(err){
-      document.getElementById('iaStatus').innerText='❌ Erro ao analisar PDF. Verifique sua conexão.';
-      document.getElementById('iaStatus').style.background='#fef2f2';
-      document.getElementById('iaStatus').style.borderColor='#fecaca';
-      document.getElementById('iaStatus').style.color='#991b1b';
-    }
-  };
-  reader.readAsDataURL(file);
+function removerAnexo(){
+  _fotoBase64 = null; _anexoNome = null;
+  document.getElementById('compAnexoInfo').style.display = 'none';
+  document.getElementById('previewImg').style.display    = 'none';
+  ['inputCamera','inputGaleria','inputPDF'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
 }
+
+function resetComprovante(){ abrirEnvioComprovante(); }
 
 async function confirmarPagamentoIA(){
-  // Pega valor do campo manual
-  const campoManual = document.getElementById('valorManual');
-  if(campoManual && parseFloat(campoManual.value)>0){
-    _valorLidoIA = parseFloat(campoManual.value);
-  }
-  if(!(_valorLidoIA>0)) return alert('Digite o valor do PIX para confirmar.');
+  const valor = parseFloat(document.getElementById('compValor').value);
+  if(!(valor>0)) return alert('⚠️ Digite o valor do PIX antes de confirmar.');
 
   const obs  = document.getElementById('compObs').value.trim();
   const wpp  = _funcAtual.wppGerente;
   const nome = _funcAtual.funcNome;
   const now  = new Date().toLocaleString('pt-BR');
-  const data = new Date().toLocaleDateString('pt-BR');
 
-  // ── CONFIRMAÇÃO MANUAL DO FUNCIONÁRIO ─────────────────────────
-  const confirmou = confirm(
-    '⚠️ CONFIRMAR PAGAMENTO\n\n'
+  // Confirmação manual
+  const ok = confirm(
+    'Confirmar pagamento?\n\n'
     +'Funcionário: '+nome+'\n'
-    +'Valor: '+fmt(_valorLidoIA)+'\n'
+    +'Valor: '+fmt(valor)+'\n'
     +(obs?'Obs: '+obs+'\n':'')
-    +'\nO valor será abatido do seu saldo.\n\nConfirmar?'
+    +'\nEste valor será descontado do seu saldo.'
   );
-  if(!confirmou) return;
+  if(!ok) return;
 
-  // ── ABATE NO SALDO (Supabase) ──────────────────────────────────
-  const btn = document.querySelector('#modComprovante button[onclick="confirmarPagamentoIA()"]');
-  if(btn){ btn.disabled=true; btn.innerText='⏳ Registrando...'; }
+  // Desabilita botão
+  const btn = document.getElementById('btnConfirmarPix');
+  btn.disabled = true; btn.innerText = '⏳ Registrando...';
 
-  const ok = await registrarPagamentoFunc(_valorLidoIA, obs);
+  // Registra no Supabase
+  const registrou = await registrarPagamentoFunc(valor, obs);
 
-  if(btn){ btn.disabled=false; btn.innerText='✅ CONFIRMAR'; }
+  btn.disabled = false; btn.innerText = '✅ CONFIRMAR PAGAMENTO';
 
-  if(!ok){
-    alert('❌ Erro ao registrar. Verifique sua conexão e tente novamente.');
-    return;
+  if(!registrou){
+    return alert('❌ Erro ao registrar. Verifique sua conexão e tente novamente.');
   }
 
-  // ── RELATÓRIO + FOTO PRO GERENTE VIA WHATSAPP ──────────────────
+  // Envia relatório pro WhatsApp do gerente
   if(wpp){
-    let msg = '🚩 *RELATÓRIO DE PIX RECEBIDO*\n';
-    msg += '━'.repeat(28)+'\n';
+    let msg = '🚩 *PAGAMENTO PIX RECEBIDO*\n';
+    msg += '━'.repeat(26)+'\n';
     msg += '👤 Funcionário: *'+nome+'*\n';
-    msg += '💰 Valor pago: *'+fmt(_valorLidoIA)+'*\n';
-    msg += '📅 Data/hora: '+now+'\n';
+    msg += '💰 Valor pago: *'+fmt(valor)+'*\n';
     if(obs) msg += '📝 Obs: '+obs+'\n';
-    msg += '━'.repeat(28)+'\n';
-    msg += '✅ *Valor abatido automaticamente no sistema.*\n';
-    msg += '📸 Comprovante em anexo nesta conversa.\n';
+    msg += '📅 '+now+'\n';
+    msg += '━'.repeat(26)+'\n';
+    msg += '✅ Valor abatido automaticamente no sistema.\n';
+    if(_anexoNome) msg += '📎 Comprovante: '+_anexoNome+'\n';
     msg += '_Gestão Inteligente 🚩_';
-
-    // Abre WhatsApp com a mensagem — funcionário envia a foto manualmente
     window.open('https://wa.me/55'+wpp+'?text='+encodeURIComponent(msg),'_blank');
   }
 
   fecharMod('modComprovante');
-  resetComprovante();
-
-  // Recarrega tela com novo saldo
   await carregarDadosFunc();
 
   alert(
-    '✅ PIX de '+fmt(_valorLidoIA)+' confirmado e abatido!\n\n'
-    +'📲 O WhatsApp do gerente foi aberto.\n'
-    +'Envie agora a foto do comprovante na conversa.'
+    '✅ Pagamento de '+fmt(valor)+' confirmado!\n'
+    +'Seu saldo foi atualizado.\n\n'
+    +(wpp ? '📲 Envie o comprovante no WhatsApp que abriu.' : '')
   );
 }
 
@@ -2318,10 +2174,9 @@ async function registrarPagamentoFunc(valor, obs){
     const dados = JSON.parse(data.dados);
     const fi = (dados.clientes||[]).findIndex(c=>c.nome===_funcAtual.funcNome);
     if(fi<0) return false;
-    const id = Date.now();
-    dados.clientes[fi].saldo -= valor;
+    dados.clientes[fi].saldo   -= valor;
     dados.clientes[fi].historico.push({
-      id, tipo:'entrada',
+      id: Date.now(), tipo:'entrada',
       desc: obs ? 'PIX — '+obs : 'PIX enviado pelo funcionário',
       valor, data: new Date().toLocaleDateString('pt-BR')
     });
@@ -2331,12 +2186,15 @@ async function registrarPagamentoFunc(valor, obs){
       dados: JSON.stringify(dados),
       atualizado_em: new Date().toISOString()
     },{onConflict:'usuario'});
-    if(e2) return false;
-    return true;
-  }catch(e){ console.error('Erro ao registrar:', e); return false; }
+    return !e2;
+  }catch(e){ console.error(e); return false; }
 }
 
-// registrarPagamentoFunc definida acima em confirmarPagamentoIA
+// Funções legacy — mantidas por compatibilidade
+function processarFotoComprovante(input){ anexarComprovante(input); }
+function processarPDFComprovante(input){ anexarComprovante(input); }
+function setIaStatus(){}
+function mostrarCampoManual(){}
 
 // ── Gerente: gerar link do funcionário ───────────────────────────
 let _linkFuncIdx = null;
