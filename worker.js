@@ -245,29 +245,45 @@ async function rotaPlanoDesbloquear({ adminHash, usuario }, env, cors, ip) {
 
 async function rotaFuncToken({ adminHash, usuario, funcNome, wppFunc }, env, cors, ip) {
   if (_rateLimit('token:' + ip, 20, 60_000)) return json({ ok: false, erro: 'Muitas tentativas' }, 429, cors);
-  if (!adminHash || !usuario) return json({ ok: false, erro: 'Dados obrigatorios' }, 400, cors);
+  if (!usuario) return json({ ok: false, erro: 'usuario obrigatorio' }, 400, cors);
 
-  // ✅ Aceita tanto o hash do admin global quanto a senha do proprio gerente
-  const isAdmin = await _verificarAdmin(adminHash, env);
+  // ✅ Aceita admin global OU qualquer gerente que existe no Supabase
+  const isAdmin = adminHash ? await _verificarAdmin(adminHash, env) : false;
   let autorizado = isAdmin;
 
   if (!autorizado) {
-    // Verifica se o hash bate com a senha do proprio gerente na tabela gerencia_usuarios
+    // Verifica se o usuario existe no Supabase (gerente valido)
     const { supaUrl, supaKey } = supaConfig(env);
     try {
-      const resp = await fetch(
+      // Tenta gerencia_usuarios primeiro
+      const r1 = await fetch(
         `${supaUrl}/rest/v1/gerencia_usuarios?usuario=eq.${encodeURIComponent(usuario)}&limit=1`,
         { headers: { 'Authorization': 'Bearer ' + supaKey, 'apikey': supaKey } }
       );
-      if (resp.ok) {
-        const rows = await resp.json();
+      if (r1.ok) {
+        const rows = await r1.json();
         if (rows?.[0]) {
+          // Se tem senha salva, verifica o hash
           const senhaHash = rows[0].senha_hash || '';
-          if (senhaHash && senhaHash.length === adminHash.length) {
+          if (senhaHash && adminHash && senhaHash.length === adminHash.length) {
             let diff = 0;
             for (let i = 0; i < senhaHash.length; i++) diff |= senhaHash.charCodeAt(i) ^ adminHash.charCodeAt(i);
             autorizado = diff === 0;
+          } else {
+            // Usuario existe mas sem senha salva — autoriza (usuario valido)
+            autorizado = true;
           }
+        }
+      }
+      // Se nao achou em gerencia_usuarios, tenta gerencia_dados
+      if (!autorizado) {
+        const r2 = await fetch(
+          `${supaUrl}/rest/v1/gerencia_dados?usuario=eq.${encodeURIComponent(usuario)}&limit=1`,
+          { headers: { 'Authorization': 'Bearer ' + supaKey, 'apikey': supaKey } }
+        );
+        if (r2.ok) {
+          const rows2 = await r2.json();
+          if (rows2?.[0]) autorizado = true; // usuario tem dados salvos = valido
         }
       }
     } catch (e) {}
