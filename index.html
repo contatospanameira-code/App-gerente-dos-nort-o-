@@ -1321,6 +1321,17 @@ async function _verificarSenhaAdmin(senha){
   }
 }
 
+// ✅ Sanitiza texto para prevenir XSS em innerHTML
+function sanitize(str){
+  if(!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#x27;');
+}
+
 function verSenha(inputId, btn){
   const el = document.getElementById(inputId);
   if(el.type==='password'){
@@ -3098,11 +3109,11 @@ async function enviarRelatorioTodos(){
 
   for(const c of todos){
     const msg = montarRelatorio(c);
-    log.innerHTML += `<div style="color:#94a3b8;margin-top:4px">⏳ ${c.nome}...</div>`;
+    log.innerHTML += `<div style="color:#94a3b8;margin-top:4px">⏳ ${sanitize(c.nome)}...</div>`;
     log.scrollTop = log.scrollHeight;
     const ok = await zapiEnviarTexto(c.wpp, msg);
-    if(ok){ enviados++; log.innerHTML += `<div style="color:#4ade80">✅ ${c.nome} — enviado!</div>`; }
-    else  { falhos++;   log.innerHTML += `<div style="color:#f87171">❌ ${c.nome} — falhou</div>`; }
+    if(ok){ enviados++; log.innerHTML += `<div style="color:#4ade80">✅ ${sanitize(c.nome)} — enviado!</div>`; }
+    else  { falhos++;   log.innerHTML += `<div style="color:#f87171">❌ ${sanitize(c.nome)} — falhou</div>`; }
     log.scrollTop = log.scrollHeight;
     await new Promise(r=>setTimeout(r,800));
   }
