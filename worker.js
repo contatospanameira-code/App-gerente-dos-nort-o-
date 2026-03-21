@@ -44,23 +44,9 @@ export default {
     const path = url.pathname;
 
     if (req.method === 'GET' && path === '/health') {
-      return json({ ok: true, ts: Date.now() }, 200, cors);
+      return json({ ok: true }, 200, cors);
     }
 
-    // ✅ ROTA ESPECIAL: testar hash — GET público para debug
-    if (req.method === 'GET' && path === '/admin/testhash') {
-      const senha = url.searchParams.get('s') || '';
-      if (!senha) return json({ erro: 'Passe ?s=suasenha' }, 400, cors);
-      const hash = await sha256hex(senha);
-      const hashSalvo = env.ADMIN_SENHA_HASH || '';
-      return json({
-        hash_gerado: hash,
-        hash_salvo_comeca: hashSalvo.slice(0, 8) + '...',
-        batem: hash === hashSalvo,
-        tamanho_gerado: hash.length,
-        tamanho_salvo: hashSalvo.length
-      }, 200, cors);
-    }
 
     if (req.method !== 'POST') return json({ error: 'Método não permitido' }, 405, cors);
 
@@ -80,7 +66,6 @@ export default {
     try {
       switch (path) {
         case '/admin/login':       return await rotaAdminLogin(payload, env, cors, ip);
-        case '/admin/testhash':    return await rotaTestHash(payload, env, cors);
         case '/ia/analisar':       return await rotaAnthropicAnalisar(payload, env, cors, ip);
         case '/zapi/texto':        return await rotaZapiTexto(payload, env, cors);
         case '/zapi/imagem':       return await rotaZapiImagem(payload, env, cors);
