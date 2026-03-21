@@ -1,0 +1,3 @@
+name = "tropagestao"
+main = "Worker.js"
+compatibility_date = "2026-03-20"
