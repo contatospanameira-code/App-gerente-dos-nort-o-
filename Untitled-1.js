@@ -372,4 +372,4 @@ const json = (data, status = 200, corsH = {}) =>
   }
   })
             }
-}
+} 
