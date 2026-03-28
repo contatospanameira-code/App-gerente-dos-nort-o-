@@ -4995,17 +4995,21 @@ async function confirmarPagamentoIA(){
   const itensPix = itensSel.length > 0
     ? itensSel.map(([id,v])=>({ saidaId: id, valorPago: +v }))
     : null;
-  const [registrou] = await Promise.all([
-    registrarPagamentoFunc(valor, obs, itensPix),
-    (_analiseIA && _analiseIA.aprovado !== false)
-      ? salvarComprovanteBanco(_analiseIA, valor, nome, hashAtual)
-      : Promise.resolve(null)
-  ]);
+
+  // ⚠️ Registra o pagamento PRIMEIRO — só depois salva o comprovante no banco.
+  // Se salvar em paralelo e o pagamento falhar por internet, o registro órfão
+  // em comprovantes_pix faz a próxima tentativa ser bloqueada como "duplicada".
+  const registrou = await registrarPagamentoFunc(valor, obs, itensPix);
 
   if(!registrou){
     btn.disabled = false;
     btn.innerText = '✅ CONFIRMAR PAGAMENTO';
     return alert('❌ Erro ao registrar. Verifique sua conexão e tente novamente.');
+  }
+
+  // Pagamento confirmado — agora salva o comprovante para controle de duplicatas
+  if(_analiseIA && _analiseIA.aprovado !== false){
+    salvarComprovanteBanco(_analiseIA, valor, nome, hashAtual).catch(()=>{});
   }
 
   // 2. Recarrega saldo atualizado do Supabase
