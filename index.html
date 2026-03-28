@@ -1092,6 +1092,13 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<div id="modGraficoEst" class="overlay">
+  <div class="mbox"><div class="modal-handle"></div>
+    <button onclick="fecharMod('modGraficoEst')" style="width:100%;padding:11px;background:#f1f5f9;border:none;border-radius:12px;font-weight:700;cursor:pointer;margin-bottom:14px;color:#475569;font-size:.85rem">✕ Fechar</button>
+    <div id="modGraficoEstCorpo"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.js"></script>
 <script>
 
@@ -1415,6 +1422,13 @@ function sanitize(str){
     .replace(/'/g,'&#x27;');
 }
 
+// ✅ Valida valor monetário/quantidade — rejeita Infinity, NaN, negativos e valores absurdos
+function _parseValor(v, max=999999){
+  const n = parseFloat(v);
+  if(!isFinite(n) || n < 0 || n > max) return NaN;
+  return n;
+}
+
 function verSenha(inputId, btn){
   const el = document.getElementById(inputId);
   if(el.type==='password'){
@@ -1505,7 +1519,7 @@ function abrirAjusteCaixa(){ abrirAjusteCard('caixa'); }
 function confirmarAjusteCard(){
   const tipo   = _cardAjusteAtivo;
   const ajuste = document.getElementById('ajusteCardTipo').value;
-  const valor  = parseFloat(document.getElementById('ajusteCardValor').value);
+  const valor  = _parseValor(document.getElementById('ajusteCardValor').value);
   const motivo = document.getElementById('ajusteCardMotivo').value.trim();
   if(!(valor >= 0)) return alert('⚠️ Digite um valor válido.');
 
@@ -2607,7 +2621,7 @@ function render(){
 
   document.getElementById('bEst').innerHTML=D.estoque.map(p=>{
     if(p.qtd>0) tC+=p.qtd*p.custo;
-    return `<tr><td>${p.nome}<br><small style="color:#94a3b8">${p.forn}</small></td><td>${p.qtd}</td><td>${fmt(p.custo)}</td><td style="display:flex;gap:4px"><button style="background:#dbeafe;color:#1d4ed8;border:none;padding:5px 8px;border-radius:6px;font-size:.7rem;cursor:pointer;font-weight:700" onclick="editarEst(${p.id})">✏️</button><button class="bd" onclick="delEst(${p.id})">🗑️</button></td></tr>`;
+    return `<tr><td>${sanitize(p.nome)}<br><small style="color:#94a3b8">${sanitize(p.forn)}</small></td><td>${p.qtd}</td><td>${fmt(p.custo)}</td><td style="display:flex;gap:4px"><button style="background:#e0f2fe;color:#0369a1;border:none;padding:5px 8px;border-radius:6px;font-size:.7rem;cursor:pointer;font-weight:700" onclick="abrirGraficoEst(${p.id})">📊</button><button style="background:#dbeafe;color:#1d4ed8;border:none;padding:5px 8px;border-radius:6px;font-size:.7rem;cursor:pointer;font-weight:700" onclick="editarEst(${p.id})">✏️</button><button class="bd" onclick="delEst(${p.id})">🗑️</button></td></tr>`;
   }).join('');
 
   if(_abaAtual===1) _renderFuncionarios();
@@ -2650,7 +2664,7 @@ function render(){
         }
         notasHtml+=`<div class="nc ${cls}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:4px">
-            <span style="font-weight:700;font-size:.8rem">${c.descricao}</span>
+            <span style="font-weight:700;font-size:.8rem">${sanitize(c.descricao)}</span>
             <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${badge}${btnPagar}<button onclick="editarNota(${fi},${c.id})" style="background:#dbeafe;color:#1d4ed8;border:none;padding:5px 8px;border-radius:6px;font-size:.7rem;font-weight:700;cursor:pointer">✏️</button><button data-acao="delnota" data-fi="${fi}" data-contaid="${c.id}" style="background:#ef4444;color:#fff;border:none;padding:5px 8px;border-radius:6px;font-size:.7rem;font-weight:700;cursor:pointer">🗑️</button></div>
           </div>
           <div style="font-size:.75rem;color:#64748b">Total: ${fmt(c.valor)} | Pago: ${fmt(c.pago)} | Falta: ${fmt(Math.max(0,resto))}</div>
@@ -2727,13 +2741,13 @@ function render(){
   atualizarSelAdiantAba();
 
   document.getElementById('pForn').innerHTML=D.fornecedores.length
-    ?D.fornecedores.map(f=>`<option value="${f.nome}">${f.nome}</option>`).join('')
+    ?D.fornecedores.map(f=>`<option value="${sanitize(f.nome)}">${sanitize(f.nome)}</option>`).join('')
     :'<option value="">Cadastre um Fornecedor</option>';
   document.getElementById('selCli').innerHTML=D.clientes.length
-    ?D.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')
+    ?D.clientes.map(c=>`<option value="${sanitize(c.nome)}">${sanitize(c.nome)}</option>`).join('')
     :'<option value="">Sem Funcionário</option>';
   document.getElementById('selProd').innerHTML=D.estoque.filter(p=>p.qtd>0).length
-    ?D.estoque.filter(p=>p.qtd>0).map(p=>`<option value="${p.id}">${p.nome} (${p.qtd})</option>`).join('')
+    ?D.estoque.filter(p=>p.qtd>0).map(p=>`<option value="${p.id}">${sanitize(p.nome)} (${p.qtd})</option>`).join('')
     :'<option value="">Sem Estoque</option>';
 }
 
@@ -2764,13 +2778,13 @@ function atualizarSelAdiantAba(){
   const sel = document.getElementById('selAdiantFornAba');
   if(!sel) return;
   sel.innerHTML = D.fornecedores.length
-    ? D.fornecedores.map(f=>`<option value="${f.nome}">${f.nome}</option>`).join('')
+    ? D.fornecedores.map(f=>`<option value="${sanitize(f.nome)}">${sanitize(f.nome)}</option>`).join('')
     : '<option value="">Cadastre um fornecedor primeiro</option>';
 }
 function confirmarAdiantAba(origem){
   const nomeForn = document.getElementById('selAdiantFornAba').value;
   const desc     = (document.getElementById('adiantDescAba').value||'').trim() || 'Adiantamento';
-  const valor    = parseFloat(document.getElementById('adiantValorAba').value);
+  const valor    = _parseValor(document.getElementById('adiantValorAba').value);
   if(!nomeForn) return alert('Selecione um fornecedor');
   if(!(valor>0)) return alert('Digite um valor válido');
   const fi = D.fornecedores.findIndex(f=>f.nome===nomeForn);
@@ -2808,9 +2822,9 @@ function _renderFuncionarios(){
     return `<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #e2e8f0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0;flex:1">
-          <div style="font-weight:700;font-size:.88rem;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.nome}</div>
-          <div style="font-size:.62rem;color:#94a3b8;margin-top:1px">👑 Gerente: <b style="color:#2563eb">${_usuario}</b></div>
-          ${c.wpp?`<div style="font-size:.65rem;color:#94a3b8">📱 ${c.wpp}</div>`:''}
+          <div style="font-weight:700;font-size:.88rem;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sanitize(c.nome)}</div>
+          <div style="font-size:.62rem;color:#94a3b8;margin-top:1px">👑 Gerente: <b style="color:#2563eb">${sanitize(_usuario)}</b></div>
+          ${c.wpp?`<div style="font-size:.65rem;color:#94a3b8">📱 ${sanitize(c.wpp)}</div>`:''}
           <div style="font-size:.75rem;font-weight:700;color:${cor};margin-top:2px">${saldoLabel}</div>
           ${temSenha
             ? `<div id="senhaFuncCard_${i}" style="font-size:.62rem;color:#94a3b8;margin-top:4px;display:flex;align-items:center;gap:4px">
@@ -2899,7 +2913,7 @@ function fecharMod(id){
 function abrirAdiant(){
   if(!D.fornecedores.length) return alert('Cadastre um fornecedor primeiro');
   const sel = document.getElementById('selAdiantForn');
-  sel.innerHTML = D.fornecedores.map(f=>`<option value="${f.nome}">${f.nome}</option>`).join('');
+  sel.innerHTML = D.fornecedores.map(f=>`<option value="${sanitize(f.nome)}">${sanitize(f.nome)}</option>`).join('');
   document.getElementById('adiantDesc').value = '';
   document.getElementById('adiantValor').value = '';
   document.getElementById('modAdiant').classList.add('on');
@@ -2908,7 +2922,7 @@ function abrirAdiant(){
 function confirmarAdiant(origem){
   const nomeForn = document.getElementById('selAdiantForn').value;
   const desc     = document.getElementById('adiantDesc').value.trim() || 'Adiantamento';
-  const valor    = parseFloat(document.getElementById('adiantValor').value);
+  const valor    = _parseValor(document.getElementById('adiantValor').value);
   if(!nomeForn)   return alert('Selecione um fornecedor');
   if(!(valor>0))  return alert('Digite um valor válido');
   const fi = D.fornecedores.findIndex(f=>f.nome===nomeForn);
@@ -2938,7 +2952,7 @@ function abrirPagarFornRapido(){
   const sel = document.getElementById('selNotaForn');
   sel.innerHTML = notasAbertas.map(c=>{
     const resto = c.valor-c.pago;
-    return `<option value="${c.id}">${c.descricao} — Falta ${fmt(resto)}</option>`;
+    return `<option value="${c.id}">${sanitize(c.descricao)} — Falta ${fmt(resto)}</option>`;
   }).join('');
 
   _atualizarInfoNotaForn();
@@ -2956,7 +2970,7 @@ function _atualizarInfoNotaForn(){
   if(!c) return;
   const resto = c.valor - c.pago;
   document.getElementById('infoNotaForn').innerHTML =
-    `<b>${c.descricao}</b><br>
+    `<b>${sanitize(c.descricao)}</b><br>
      Total da nota: <b>${fmt(c.valor)}</b><br>
      Já pago: <b style="color:#16a34a">${fmt(c.pago)}</b><br>
      <span style="color:#dc2626;font-weight:700">❗ Falta pagar: ${fmt(resto)}</span>`;
@@ -3012,7 +3026,7 @@ function confirmarPagFornRapido(origem){
     return;
   }
 
-  const valor = parseFloat(document.getElementById('pValorForn').value);
+  const valor = _parseValor(document.getElementById('pValorForn').value);
   if(!(valor>0)) return alert('Digite um valor válido');
   if(valor>resto) return alert(`Valor máximo: ${fmt(resto)}`);
   c.pago += valor;
@@ -3033,7 +3047,7 @@ function abrirPagar(fi,ci){
   const creditoDisp=(f.adiantamentos||[]).reduce((s,a)=>s+Math.max(0,a.valor-(a.usado||0)),0);
   document.getElementById('pTitulo').innerText='💸 Pagar — '+f.nome;
   document.getElementById('pInfo').innerHTML=
-    `<b style="font-size:.9rem">${c.descricao}</b><br>
+    `<b style="font-size:.9rem">${sanitize(c.descricao)}</b><br>
      Total da nota: <b>${fmt(c.valor)}</b><br>
      Já pago: <b style="color:#16a34a">${fmt(c.pago)}</b><br>
      <span style="color:#dc2626;font-weight:700;font-size:.95rem">Falta pagar: ${fmt(resto)}</span>`;
@@ -3058,7 +3072,7 @@ function confirmarPagamento(origem){
   if(_pagFi===null||_pagCi===null) return;
   const c=D.fornecedores[_pagFi].contas[_pagCi];
   const resto=c.valor-c.pago;
-  let valor=parseFloat(document.getElementById('pValor').value);
+  let valor=_parseValor(document.getElementById('pValor').value);
 
   if(origem==='credito'){
     
@@ -3195,7 +3209,7 @@ async function enviarRelatorioTodos(){
   
   log.innerHTML += `<div style="margin-top:8px;padding:8px;background:#1e293b;border-radius:6px;font-weight:700">
     📊 <span style="color:#4ade80">${enviados} enviado(s)</span>${falhos?` | <span style="color:#f87171">${falhos} falhou</span>`:''}
-    ${semWpp.length?`<br><span style="color:#f59e0b">⚠️ ${semWpp.map(c=>c.nome).join(', ')} sem WhatsApp</span>`:''}
+    ${semWpp.length?`<br><span style="color:#f59e0b">⚠️ ${semWpp.map(c=>sanitize(c.nome)).join(', ')} sem WhatsApp</span>`:''}
   </div>`;
   log.scrollTop = log.scrollHeight;
 
@@ -3376,7 +3390,7 @@ function abrirLucros(){
 function addForn(){ const n=document.getElementById('fNome').value.trim(); if(!n) return alert('Digite o nome'); if(D.fornecedores.find(x=>x.nome===n)) return alert('Já existe'); D.fornecedores.push({nome:n,contas:[]}); document.getElementById('fNome').value=''; save(); }
 function addProduto(){
   const f=document.getElementById('pForn').value,n=document.getElementById('pNome').value.trim();
-  const q=parseFloat(document.getElementById('pQtd').value),c=parseFloat(document.getElementById('pCusto').value);
+  const q=_parseValor(document.getElementById('pQtd').value),c=_parseValor(document.getElementById('pCusto').value);
   if(!f||!n||!(q>0)||isNaN(c)) return alert('Preencha todos os campos');
   const id=Date.now(),total=q*c;
   D.estoque.push({id,forn:f,nome:n,qtd:q,custo:c});
@@ -3444,7 +3458,7 @@ function addFunc(){
 }
 function darCarga(){
   const nomeCli=document.getElementById('selCli').value,prodId=+document.getElementById('selProd').value;
-  const qtd=parseFloat(document.getElementById('vQtd').value),preco=parseFloat(document.getElementById('vVenda').value);
+  const qtd=_parseValor(document.getElementById('vQtd').value),preco=_parseValor(document.getElementById('vVenda').value);
   if(!nomeCli||!prodId||!(qtd>0)||isNaN(preco)) return alert('Preencha todos os campos');
   const pi=D.estoque.findIndex(p=>p.id===prodId); if(pi<0) return alert('Produto não encontrado');
   if(D.estoque[pi].qtd<qtd) return alert(`Estoque insuficiente (${D.estoque[pi].qtd})`);
@@ -3460,7 +3474,7 @@ function darCarga(){
   alert(`✅ Carga: ${D.estoque[pi].nome} x${qtd} = ${fmt(total)}`);
 }
 function receberPix(){
-  const nomeCli=document.getElementById('selCli').value,valor=parseFloat(document.getElementById('vPix').value);
+  const nomeCli=document.getElementById('selCli').value,valor=_parseValor(document.getElementById('vPix').value);
   if(!nomeCli||!(valor>0)) return alert('Preencha os campos');
   const ci=D.clientes.findIndex(c=>c.nome===nomeCli); if(ci<0) return alert('Funcionário não encontrado');
   D.clientes[ci].saldo-=valor; D.clientes[ci].historico.push({id:Date.now(),tipo:'entrada',desc:'Acerto recebido',valor,data:hoje()});
@@ -3705,6 +3719,80 @@ function editarEst(id){
   p.custo = c;
   save();
   alert('✅ Estoque atualizado!\n'+p.nome+': '+q+' un × R$ '+c.toFixed(2).replace('.',','));
+}
+
+function abrirGraficoEst(prodId){
+  const p = D.estoque.find(x=>x.id===prodId);
+  if(!p) return;
+
+  const entregas = [];
+  D.clientes.forEach(c=>{
+    (c.historico||[]).forEach(h=>{
+      if(h.tipo==='saida' && h.prodId===prodId){
+        entregas.push({nome:c.nome, qtd:h.qtd||0, valor:h.valor||0, data:h.data||''});
+      }
+    });
+  });
+
+  entregas.sort((a,b)=>parseDt(a.data)-parseDt(b.data));
+
+  const byFunc = {};
+  entregas.forEach(e=>{
+    if(!byFunc[e.nome]) byFunc[e.nome]={nome:e.nome, qtd:0, valor:0};
+    byFunc[e.nome].qtd += e.qtd;
+    byFunc[e.nome].valor += e.valor;
+  });
+
+  const funcList = Object.values(byFunc).sort((a,b)=>b.qtd-a.qtd);
+  const maxQtd   = funcList.length ? Math.max(...funcList.map(f=>f.qtd)) : 1;
+  const totalQtd = funcList.reduce((s,f)=>s+f.qtd, 0);
+
+  let html = `<h3 style="text-align:center;margin:0 0 6px">📊 Entregas de Estoque</h3>
+    <p style="text-align:center;font-weight:700;font-size:.9rem;margin:0 0 14px;color:#2563eb">${sanitize(p.nome)}</p>`;
+
+  if(!entregas.length){
+    html += `<p style="text-align:center;color:#94a3b8;padding:24px 0;font-size:.85rem">Nenhuma entrega registrada para este item.</p>`;
+  } else {
+    html += `<div style="font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:10px">Por funcionário — Total: ${totalQtd} unid.</div>`;
+
+    funcList.forEach(f=>{
+      const pct = maxQtd > 0 ? (f.qtd/maxQtd)*100 : 0;
+      html += `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;font-weight:700;margin-bottom:4px">
+          <span>${sanitize(f.nome)}</span>
+          <span style="color:#2563eb">${f.qtd} un · ${fmt(f.valor)}</span>
+        </div>
+        <div style="height:14px;background:#e2e8f0;border-radius:7px;overflow:hidden">
+          <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,#2563eb,#60a5fa);border-radius:7px"></div>
+        </div>
+      </div>`;
+    });
+
+    html += `<div style="font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;margin:16px 0 8px">Histórico detalhado</div>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">
+        <table style="width:100%;border-collapse:collapse;font-size:.75rem">
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Funcionário</th>
+            <th style="padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0">Qtd</th>
+            <th style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0">Valor</th>
+            <th style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0">Data</th>
+          </tr></thead><tbody>`;
+
+    const desc = [...entregas].reverse();
+    desc.forEach(e=>{
+      html += `<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:5px 8px">${sanitize(e.nome)}</td>
+        <td style="padding:5px 8px;text-align:center;font-weight:700">${e.qtd}</td>
+        <td style="padding:5px 8px;text-align:right;color:#dc2626;font-weight:700">${fmt(e.valor)}</td>
+        <td style="padding:5px 8px;text-align:right;color:#94a3b8">${sanitize(e.data)}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+  }
+
+  document.getElementById('modGraficoEstCorpo').innerHTML = html;
+  document.getElementById('modGraficoEst').classList.add('on');
 }
 
 function editarNota(fi, contaId){
@@ -4777,7 +4865,7 @@ async function analisarComprovanteIA(base64, valor, nomeFuncionario){
 }
 
 async function confirmarPagamentoIA(){
-  const valor = parseFloat(document.getElementById('compValor').value);
+  const valor = _parseValor(document.getElementById('compValor').value);
   if(!(valor>0)) return alert('⚠️ Digite o valor do PIX antes de confirmar.');
 
   // Monta obs automaticamente dos itens selecionados
