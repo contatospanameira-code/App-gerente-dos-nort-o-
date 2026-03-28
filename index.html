@@ -5256,19 +5256,19 @@ async function _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp){
   const msgWpp = '🚩 *PIX CONFIRMADO — Gestão Inteligente*\n\n👤 *'+nome+'*\n💰 Valor pago: *'+fmt(valor)+'*\n'+(obs?'📝 '+obs+'\n':'')+'🕐 '+now+'\n💳 Saldo devedor: *'+fmt(saldoFinal)+'*\n'+(saldoFinal>0?'⚠️ Ainda possui débito.':'✅ Conta quitada!');
   _wppDiretoMsg = msgWpp; _wppDiretoNum = wppFinal;
   if(wppFinal){
-    const phoneG = '55' + String(wppFinal).replace(/\D/g,'');
+    // ⚠️ NÃO adicionar '55' aqui — o Worker já adiciona internamente
+    const telLimpo = String(wppFinal).replace(/\D/g,'');
     if(urlFotoPublica){
-      // Envia imagem com legenda (foto do comprovante aparece diretamente no WhatsApp)
+      // Envia imagem com legenda diretamente no WhatsApp do gerente
       fetch(`${WORKER_URL}/zapi/imagem`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneG, imageUrl: urlFotoPublica, caption: msgWpp })
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ telefone: telLimpo, imageUrl: urlFotoPublica, legenda: msgWpp })
       }).catch(()=>{
-        // fallback: envia só texto se envio de imagem falhar
-        fetch(`${WORKER_URL}/zapi/texto`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone: phoneG, message: msgWpp + '\n\n📎 Comprovante:\n' + urlFotoPublica }) }).catch(()=>{});
+        // fallback: texto com link da foto se envio de imagem falhar
+        zapiEnviarTexto(telLimpo, msgWpp + '\n\n📎 Comprovante:\n' + urlFotoPublica).catch(()=>{});
       });
     } else {
-      fetch(`${WORKER_URL}/zapi/texto`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone: phoneG, message: msgWpp }) }).catch(()=>{});
+      zapiEnviarTexto(telLimpo, msgWpp).catch(()=>{});
     }
   }
   const modalContent = document.querySelector('#modComprovante .mbox');

@@ -206,6 +206,7 @@ async function rotaAnthropicAnalisar({ imgBase64, imgMime, imgUrl, valor, nomeFu
 
 async function rotaZapiTexto({ telefone, mensagem, message, phone }, env, cors) {
   const { baseUrl, clientToken } = zapiConfig(env);
+  if (!env.ZAPI_INSTANCE || !env.ZAPI_TOKEN) return json({ ok: false, error: 'Z-API não configurado (ZAPI_INSTANCE/ZAPI_TOKEN ausentes)' }, 500, cors);
   const tel = telefone || phone || '';
   const msg = mensagem || message || '';
   if (!tel || !msg) return json({ ok: false, error: 'telefone e mensagem obrigatórios' }, 400, cors);
@@ -217,6 +218,7 @@ async function rotaZapiTexto({ telefone, mensagem, message, phone }, env, cors) 
 
 async function rotaZapiImagem({ telefone, imageUrl, legenda, phone, image, caption }, env, cors) {
   const { baseUrl, clientToken } = zapiConfig(env);
+  if (!env.ZAPI_INSTANCE || !env.ZAPI_TOKEN) return json({ ok: false, error: 'Z-API não configurado (ZAPI_INSTANCE/ZAPI_TOKEN ausentes)' }, 500, cors);
   const tel = telefone || phone || '';
   const img = imageUrl || image || '';
   const leg = legenda || caption || '';
