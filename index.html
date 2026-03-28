@@ -5009,8 +5009,8 @@ async function confirmarPagamentoIA(){
     if(!confirm('⚠️ Confirmação final\n\nVocê está registrando um pagamento de R$ ' + valor.toFixed(2).replace('.',',') + ' SEM análise do comprovante.\n\nO gerente receberá o aviso de que a verificação não foi realizada.\n\n✅ Confirmar mesmo assim?')) return;
     _analiseIA = { aprovado: true, erro: 'Imagem não lida — aprovado sem verificação' };
     btn.disabled=true; btn.innerText='⏳ Registrando...'; btnWpp.style.display='none';
-    const [reg] = await Promise.all([registrarPagamentoFunc(valor, obs), Promise.resolve(null)]);
-    if(!reg){ btn.disabled=false; btn.innerText='✅ CONFIRMAR PAGAMENTO'; btn.style.background='#16a34a'; return alert('❌ Erro ao registrar.'); }
+    const reg = await registrarPagamentoFunc(valor, obs, null);
+    if(!reg.ok){ btn.disabled=false; btn.innerText='✅ CONFIRMAR PAGAMENTO'; btn.style.background='#16a34a'; return alert('❌ Erro ao registrar.\n\n' + _msgErroPagar(reg.erro, reg.status)); }
     await _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp);
     return;
   }
@@ -5136,10 +5136,11 @@ async function confirmarPagamentoIA(){
   // em comprovantes_pix faz a próxima tentativa ser bloqueada como "duplicada".
   const registrou = await registrarPagamentoFunc(valor, obs, itensPix);
 
-  if(!registrou){
+  if(!registrou.ok){
     btn.disabled = false;
     btn.innerText = '✅ CONFIRMAR PAGAMENTO';
-    return alert('❌ Erro ao registrar. Verifique sua conexão e tente novamente.');
+    btn.style.background = '#16a34a';
+    return alert('❌ Erro ao registrar.\n\n' + _msgErroPagar(registrou.erro, registrou.status));
   }
 
   // Pagamento confirmado — agora salva o comprovante para controle de duplicatas
@@ -5362,7 +5363,7 @@ async function registrarPagamentoFunc(valor, obs, itensPix){
     if(!token){
       console.error('[PAGAR] Token JWT não encontrado');
       alert('❌ Sessão expirada. Feche e abra o link novamente.');
-      return false;
+      return { ok: false, erro: 'sessao_expirada' };
     }
 
     let urlFoto = null;
@@ -5385,28 +5386,61 @@ async function registrarPagamentoFunc(valor, obs, itensPix){
       }catch(e){}
     }
 
-    const resp = await fetch(`${WORKER_URL}/func/pagar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, valor, obs: obs || '', analiseIA: _analiseIA || null, hashComprovante: hashComp, urlFoto, itensPix: itensPix || null })
-    });
+    // Tenta até 2 vezes (retry automático em erro de rede transitório)
+    const bodyPagar = JSON.stringify({ token, valor, obs: obs || '', analiseIA: _analiseIA || null, hashComprovante: hashComp, urlFoto, itensPix: itensPix || null });
+    let resp = null;
+    for(let t = 0; t < 2; t++){
+      try{
+        resp = await fetch(`${WORKER_URL}/func/pagar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: bodyPagar
+        });
+        break;
+      }catch(netErr){
+        console.warn('[PAGAR] tentativa', t+1, netErr.message);
+        if(t === 0) await new Promise(r=>setTimeout(r, 2500));
+      }
+    }
+
+    if(!resp) return { ok: false, erro: 'sem_conexao' };
 
     if(!resp.ok){
-      console.error('[PAGAR] HTTP', resp.status);
-      return false;
+      let errMsg = 'http_' + resp.status;
+      try{ const d = await resp.json(); errMsg = d.erro || errMsg; }catch(e){}
+      console.error('[PAGAR] HTTP', resp.status, errMsg);
+      return { ok: false, erro: errMsg, status: resp.status };
     }
+
     const data = await resp.json();
     if(data.ok && data.novoSaldo !== undefined){
       _funcAtual._saldoAtual = data.novoSaldo;
     }
     if(data.ok && urlFoto){
-      _funcAtual._urlFotoAtual = urlFoto; // guarda para usar no WhatsApp
+      _funcAtual._urlFotoAtual = urlFoto;
     }
-    return data.ok === true;
+    return { ok: data.ok === true, erro: data.erro || null };
   }catch(e){
     console.error('[PAGAR]', e);
-    return false;
+    return { ok: false, erro: 'excecao: ' + e.message };
   }
+}
+
+function _msgErroPagar(erro, status){
+  if(!erro) return 'Verifique sua conexão e tente novamente.';
+  if(erro === 'sem_conexao' || erro.includes('fetch') || erro.includes('network') || erro.includes('Failed'))
+    return '📡 Sem conexão com o servidor.\n\nVerifique sua internet e tente novamente.';
+  if(erro === 'sessao_expirada' || erro.includes('Token') || erro.includes('token') || status === 401)
+    return '🔑 Sessão expirada.\n\nFeche e abra o link novamente.';
+  if(status === 429 || erro.includes('Muitas tentativas'))
+    return '⏱️ Muitas tentativas em pouco tempo.\n\nAguarde 1 minuto e tente novamente.';
+  if(status === 404 || erro.includes('nao encontrado') || erro.includes('não encontrado'))
+    return '👤 Funcionário não encontrado no servidor.\n\nContate o gerente.';
+  if(status === 502 || erro.includes('salvar') || erro.includes('buscar'))
+    return '🔌 Erro no servidor (banco de dados).\n\nTente novamente em instantes. Se persistir, contate o gerente.';
+  if(erro.includes('Valor inválido') || status === 400)
+    return '💰 Valor inválido detectado pelo servidor.\n\nVerifique o valor e tente novamente.';
+  return 'Erro: ' + erro + '\n\nTente novamente ou contate o gerente.';
 }
 
 function abrirGaleriaFunc(){
