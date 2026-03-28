@@ -335,13 +335,18 @@ async function rotaFuncToken({ adminHash, usuario, funcNome, wppFunc }, env, cor
   if (_rateLimit('token:' + ip, 20, 60_000)) return json({ ok: false, erro: 'Muitas tentativas' }, 429, cors);
   if (!usuario) return json({ ok: false, erro: 'usuario obrigatorio' }, 400, cors);
 
-  // ✅ Aceita admin global OU qualquer gerente que existe no Supabase
+  // ✅ Tenta admin global primeiro (não depende de Supabase)
   const isAdmin = adminHash ? await _verificarAdmin(adminHash, env) : false;
   let autorizado = isAdmin;
 
   if (!autorizado) {
-    // Verifica se o usuario existe no Supabase (gerente valido)
     const { supaUrl, supaKey } = supaConfig(env);
+
+    if (!supaUrl || !supaKey) {
+      // Supabase não configurado — sem como verificar gerente, retorna erro claro
+      return json({ ok: false, erro: 'Banco nao configurado no servidor (SUPA_URL/SUPA_SERVICE_KEY)' }, 500, cors);
+    }
+
     try {
       // Tenta gerencia_usuarios primeiro
       const r1 = await fetch(
@@ -351,15 +356,13 @@ async function rotaFuncToken({ adminHash, usuario, funcNome, wppFunc }, env, cor
       if (r1.ok) {
         const rows = await r1.json();
         if (rows?.[0]) {
-          // Se tem senha salva, verifica o hash
           const senhaHash = rows[0].senha_hash || '';
           if (senhaHash && adminHash && senhaHash.length === adminHash.length) {
             let diff = 0;
             for (let i = 0; i < senhaHash.length; i++) diff |= senhaHash.charCodeAt(i) ^ adminHash.charCodeAt(i);
             autorizado = diff === 0;
           } else {
-            // Usuario existe mas sem senha salva — autoriza (usuario valido)
-            autorizado = true;
+            autorizado = true; // usuario existe sem senha salva
           }
         }
       }
@@ -371,10 +374,13 @@ async function rotaFuncToken({ adminHash, usuario, funcNome, wppFunc }, env, cor
         );
         if (r2.ok) {
           const rows2 = await r2.json();
-          if (rows2?.[0]) autorizado = true; // usuario tem dados salvos = valido
+          if (rows2?.[0]) autorizado = true;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Falha de conexão com Supabase — retorna erro específico em vez de "Nao autorizado"
+      return json({ ok: false, erro: 'Falha de conexao com banco: ' + e.message }, 502, cors);
+    }
   }
 
   if (!autorizado) return json({ ok: false, erro: 'Nao autorizado' }, 401, cors);
@@ -398,22 +404,44 @@ async function rotaFuncPagar({ token, valor, obs, analiseIA, hashComprovante, ur
   if (!jwt.ok) return json({ ok: false, erro: 'Token inválido: ' + jwt.erro }, 401, cors);
   const valorNum = parseFloat(valor);
   if (!valorNum || valorNum <= 0 || valorNum > 1_000_000) return json({ ok: false, erro: 'Valor inválido' }, 400, cors);
-  const payload = { urlFoto: urlFoto || null };
   const { sub: usuario, funcNome } = jwt.payload;
   const { supaUrl, supaKey } = supaConfig(env);
-  const getResp = await fetch(`${supaUrl}/rest/v1/gerencia_dados?usuario=eq.${encodeURIComponent(usuario)}&limit=1`, { headers: { 'Authorization': 'Bearer ' + supaKey, 'apikey': supaKey } });
-  if (!getResp.ok) return json({ ok: false, erro: 'Erro ao buscar dados' }, 502, cors);
-  const rows = await getResp.json();
+  if (!supaUrl || !supaKey) return json({ ok: false, erro: 'Servidor sem configuração de banco de dados (SUPA_URL/SUPA_SERVICE_KEY)' }, 500, cors);
+
+  // Busca dados do gerente no Supabase
+  let rows;
+  try {
+    const getResp = await fetch(`${supaUrl}/rest/v1/gerencia_dados?usuario=eq.${encodeURIComponent(usuario)}&limit=1`, {
+      headers: { 'Authorization': 'Bearer ' + supaKey, 'apikey': supaKey }
+    });
+    if (!getResp.ok) return json({ ok: false, erro: 'Erro ao buscar dados (HTTP ' + getResp.status + ')' }, 502, cors);
+    rows = await getResp.json();
+  } catch (e) {
+    return json({ ok: false, erro: 'Falha de conexão com banco: ' + e.message }, 502, cors);
+  }
+
   if (!rows?.[0]) return json({ ok: false, erro: 'Usuário não encontrado' }, 404, cors);
-  const dados = JSON.parse(rows[0].dados);
+
+  // Suporta tanto coluna text (JSON string) quanto jsonb (objeto já parseado)
+  let dados;
+  try {
+    const raw = rows[0].dados;
+    dados = (raw && typeof raw === 'object') ? raw : JSON.parse(raw);
+    if (!dados || typeof dados !== 'object') throw new Error('dados nulo ou inválido');
+  } catch (e) {
+    return json({ ok: false, erro: 'Erro ao ler dados do usuário: ' + e.message }, 502, cors);
+  }
+
   // ✅ funcNome vem do JWT assinado — não pode ser falsificado
   const funcNomeSeguro = String(funcNome).trim().toLowerCase();
   const fi = (dados.clientes || []).findIndex(c => (c.nome||'').trim().toLowerCase() === funcNomeSeguro);
   if (fi < 0) return json({ ok: false, erro: 'Funcionario nao encontrado' }, 404, cors);
+
   let hashReal = null;
   if (hashComprovante) {
     try { const enc = new TextEncoder().encode(String(hashComprovante)); const buf = await crypto.subtle.digest('SHA-256', enc); hashReal = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''); } catch (e) {}
   }
+
   dados.clientes[fi].saldo = Math.max(0, (dados.clientes[fi].saldo || 0) - valorNum);
   if (isNaN(dados.clientes[fi].saldo)) dados.clientes[fi].saldo = 0;
   const ia = analiseIA && typeof analiseIA === 'object' ? analiseIA : {};
@@ -422,23 +450,26 @@ async function rotaFuncPagar({ token, valor, obs, analiseIA, hashComprovante, ur
     try { const [d, m, a] = ia.data_comprovante.split('/').map(Number); const [h, min] = ia.hora_comprovante.split(':').map(Number); if (!isNaN(d) && !isNaN(h)) timestampPix = new Date(a, m - 1, d, h, min).toISOString(); } catch (e) {}
   }
   dados.clientes[fi].historico = dados.clientes[fi].historico || [];
-  dados.clientes[fi].historico.push({ id: Date.now(), tipo: 'entrada', desc: obs ? 'PIX — ' + String(obs).slice(0, 200) : 'PIX enviado pelo funcionário', valor: valorNum, data: new Date().toLocaleDateString('pt-BR'), hashComprovante: hashReal, urlFoto: payload.urlFoto ? String(payload.urlFoto).slice(0, 500) : null, timestamp: new Date().toISOString(), timestampPix, nomeRemetente: ia.nome_remetente ? String(ia.nome_remetente).slice(0, 100) : null, nomeRecebedor: ia.nome_recebedor ? String(ia.nome_recebedor).slice(0, 100) : null, idTransacao: ia.id_transacao ? String(ia.id_transacao).slice(0, 100) : null, duplicado: !!ia.duplicado });
+  dados.clientes[fi].historico.push({ id: Date.now(), tipo: 'entrada', desc: obs ? 'PIX — ' + String(obs).slice(0, 200) : 'PIX enviado pelo funcionário', valor: valorNum, data: new Date().toLocaleDateString('pt-BR'), hashComprovante: hashReal, urlFoto: urlFoto ? String(urlFoto).slice(0, 500) : null, timestamp: new Date().toISOString(), timestampPix, nomeRemetente: ia.nome_remetente ? String(ia.nome_remetente).slice(0, 100) : null, nomeRecebedor: ia.nome_recebedor ? String(ia.nome_recebedor).slice(0, 100) : null, idTransacao: ia.id_transacao ? String(ia.id_transacao).slice(0, 100) : null, duplicado: !!ia.duplicado });
   dados.recebido = (dados.recebido || 0) + valorNum;
 
   // ✅ PATCH primeiro (atualiza linha existente), POST só se não existir
-  const { supaUrl: su, supaKey: sk } = supaConfig(env);
-  const headers = { 'Authorization': 'Bearer ' + sk, 'apikey': sk, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+  const headers = { 'Authorization': 'Bearer ' + supaKey, 'apikey': supaKey, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
   const body = JSON.stringify({ usuario, dados: JSON.stringify(dados), atualizado_em: new Date().toISOString() });
 
-  const patchResp = await fetch(`${su}/rest/v1/gerencia_dados?usuario=eq.${encodeURIComponent(usuario)}`, { method: 'PATCH', headers, body });
-  const contentRange = patchResp.headers.get('content-range') || '';
+  try {
+    const patchResp = await fetch(`${supaUrl}/rest/v1/gerencia_dados?usuario=eq.${encodeURIComponent(usuario)}`, { method: 'PATCH', headers, body });
+    const contentRange = patchResp.headers.get('content-range') || '';
 
-  // Se PATCH não atualizou nenhuma linha, faz INSERT
-  if (patchResp.ok && contentRange === '*/0') {
-    const postResp = await fetch(`${su}/rest/v1/gerencia_dados`, { method: 'POST', headers, body });
-    if (!postResp.ok) return json({ ok: false, erro: 'Erro ao salvar pagamento' }, 502, cors);
-  } else if (!patchResp.ok) {
-    return json({ ok: false, erro: 'Erro ao salvar pagamento' }, 502, cors);
+    // Se PATCH não atualizou nenhuma linha, faz INSERT
+    if (patchResp.ok && contentRange === '*/0') {
+      const postResp = await fetch(`${supaUrl}/rest/v1/gerencia_dados`, { method: 'POST', headers, body });
+      if (!postResp.ok) return json({ ok: false, erro: 'Erro ao salvar pagamento (INSERT HTTP ' + postResp.status + ')' }, 502, cors);
+    } else if (!patchResp.ok) {
+      return json({ ok: false, erro: 'Erro ao salvar pagamento (PATCH HTTP ' + patchResp.status + ')' }, 502, cors);
+    }
+  } catch (e) {
+    return json({ ok: false, erro: 'Falha ao salvar no banco: ' + e.message }, 502, cors);
   }
 
   return json({ ok: true, novoSaldo: dados.clientes[fi].saldo, historico: dados.clientes[fi].historico }, 200, cors);

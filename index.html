@@ -5434,6 +5434,12 @@ function _msgErroPagar(erro, status){
     return '🔑 Sessão expirada.\n\nFeche e abra o link novamente.';
   if(status === 429 || erro.includes('Muitas tentativas'))
     return '⏱️ Muitas tentativas em pouco tempo.\n\nAguarde 1 minuto e tente novamente.';
+  if(erro.includes('SUPA_URL') || erro.includes('SUPA_SERVICE_KEY') || erro.includes('configuração de banco'))
+    return '⚙️ Servidor sem configuração de banco de dados.\n\nO gerente precisa configurar as variáveis SUPA_URL e SUPA_SERVICE_KEY no Cloudflare Worker.';
+  if(erro.includes('Falha de conexão') || erro.includes('Falha ao salvar') || erro.includes('Falha'))
+    return '🔌 Falha de conexão com o banco de dados.\n\nTente novamente em instantes. Se persistir, contate o gerente.';
+  if(erro.includes('ler dados') || erro.includes('nulo') || erro.includes('inválido'))
+    return '📂 Dados corrompidos no servidor.\n\nContate o gerente para verificar o banco de dados.';
   if(status === 404 || erro.includes('nao encontrado') || erro.includes('não encontrado'))
     return '👤 Funcionário não encontrado no servidor.\n\nContate o gerente.';
   if(status === 502 || erro.includes('salvar') || erro.includes('buscar'))
@@ -5672,8 +5678,19 @@ function gerarLinkFunc(i){
     body: JSON.stringify({ adminHash: adminHashAtual, usuario: _usuario, funcNome: c.nome, wppFunc: c.wpp || '' })
   }).then(r => r.json()).then(data => {
     if(!data.ok){
-      // ✅ SEGURO: sem fallback inseguro — exibe erro ao invés de gerar token local
-      alert('❌ Não foi possível gerar o link.\n\nVerifique sua conexão e tente novamente.\n\nErro: ' + (data.erro || 'Worker indisponível'));
+      const erro = data.erro || 'Worker indisponível';
+      let msg = '❌ Não foi possível gerar o link.\n\n';
+      if(erro.includes('SUPA_URL') || erro.includes('SUPA_SERVICE_KEY') || erro.includes('Banco nao configurado'))
+        msg += '⚙️ O servidor não tem as variáveis SUPA_URL e SUPA_SERVICE_KEY configuradas.\n\nVá em Cloudflare Workers → Settings → Variables e adicione as variáveis.';
+      else if(erro.includes('Falha de conexao') || erro.includes('Falha'))
+        msg += '🔌 Falha de conexão com o banco de dados.\n\nTente novamente em instantes.';
+      else if(erro.includes('Nao autorizado') || erro.includes('autorizado'))
+        msg += '🔑 Sessão expirada ou senha incorreta.\n\nSaia e entre novamente no app.';
+      else if(erro.includes('JWT_SECRET'))
+        msg += '⚙️ JWT_SECRET não configurado no Cloudflare Worker.';
+      else
+        msg += 'Erro: ' + erro + '\n\nContate o suporte.';
+      alert(msg);
       return;
     }
     const base = 'https://app-gerente-dos-nort-o.pages.dev';
