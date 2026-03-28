@@ -5216,8 +5216,10 @@ async function confirmarPagamentoIA(){
   const temFoto = !!_fotoBase64 && !_fotoBase64.startsWith('pdf:') && !_fotoBase64.startsWith('file:');
 
   // Guarda para botão de envio direto
-  _wppDiretoMsg = msgWpp;
-  _wppDiretoNum = wppFinal;
+  const _urlFotoIA = _funcAtual._urlFotoAtual || null;
+  _wppDiretoMsg  = msgWpp;
+  _wppDiretoNum  = wppFinal;
+  _wppDiretoFoto = _urlFotoIA;
 
   // 5. Tenta Z-API em background (texto apenas — foto é enviada pelo próprio funcionário)
   if(wppFinal){
@@ -5254,6 +5256,7 @@ async function confirmarPagamentoIA(){
         ${wppFinal ? `
         <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:14px;padding:16px;margin-bottom:12px;text-align:left">
           <div style="font-size:.7rem;font-weight:700;color:#15803d;margin-bottom:8px;text-transform:uppercase">📲 Enviar comprovante ao gerente</div>
+          ${_urlFotoIA ? `<div style="font-size:.72rem;color:#15803d;margin-bottom:8px">📎 Link do comprovante será incluído na mensagem</div>` : ''}
           <button onclick="_enviarWppComFoto()"
             style="display:block;width:100%;padding:14px;background:#25d366;color:#fff;border-radius:12px;font-weight:800;font-size:.95rem;text-align:center;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,.35)">
             📲 ENVIAR PELO MEU WHATSAPP
@@ -5270,9 +5273,10 @@ async function confirmarPagamentoIA(){
   }
 }
 
-// Guarda a mensagem e número para o botão de envio direto
+// Guarda a mensagem, número e foto para o botão de envio direto
 let _wppDiretoMsg = '';
 let _wppDiretoNum = '';
+let _wppDiretoFoto = null;
 
 // Alias para compatibilidade com o fluxo sem IA
 async function _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp){
@@ -5301,21 +5305,21 @@ async function _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp){
   _funcAtual._urlFotoAtual = null;
   const temFoto = !!_fotoBase64 && !_fotoBase64.startsWith('pdf:');
   const msgWpp = '🚩 *PIX CONFIRMADO — Gestão Inteligente*\n\n👤 *'+nome+'*\n💰 Valor pago: *'+fmt(valor)+'*\n'+(obs?'📝 '+obs+'\n':'')+'🕐 '+now+'\n💳 Saldo devedor: *'+fmt(saldoFinal)+'*\n'+(saldoFinal>0?'⚠️ Ainda possui débito.':'✅ Conta quitada!');
-  _wppDiretoMsg = msgWpp; _wppDiretoNum = wppFinal;
+  _wppDiretoMsg = msgWpp; _wppDiretoNum = wppFinal; _wppDiretoFoto = urlFotoPublica;
   if(wppFinal){
-    const phoneG = '55' + String(wppFinal).replace(/\D/g,'');
+    // ⚠️ NÃO adicionar '55' aqui — o Worker já adiciona internamente
+    const telLimpo = String(wppFinal).replace(/\D/g,'');
     if(urlFotoPublica){
-      // Envia imagem com legenda (foto do comprovante aparece diretamente no WhatsApp)
+      // Envia imagem com legenda diretamente no WhatsApp do gerente
       fetch(`${WORKER_URL}/zapi/imagem`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneG, imageUrl: urlFotoPublica, caption: msgWpp })
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ telefone: telLimpo, imageUrl: urlFotoPublica, legenda: msgWpp })
       }).catch(()=>{
-        // fallback: envia só texto se envio de imagem falhar
-        fetch(`${WORKER_URL}/zapi/texto`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone: phoneG, message: msgWpp + '\n\n📎 Comprovante:\n' + urlFotoPublica }) }).catch(()=>{});
+        // fallback: texto com link da foto se envio de imagem falhar
+        zapiEnviarTexto(telLimpo, msgWpp + '\n\n📎 Comprovante:\n' + urlFotoPublica).catch(()=>{});
       });
     } else {
-      fetch(`${WORKER_URL}/zapi/texto`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phone: phoneG, message: msgWpp }) }).catch(()=>{});
+      zapiEnviarTexto(telLimpo, msgWpp).catch(()=>{});
     }
   }
   const modalContent = document.querySelector('#modComprovante .mbox');
@@ -5326,21 +5330,31 @@ async function _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp){
         <div style="font-size:1.2rem;font-weight:800;color:#16a34a;margin-bottom:6px">Pagamento Registrado!</div>
         <div style="font-size:.85rem;color:#475569;margin-bottom:4px">💰 ${fmt(valor)} confirmado com sucesso</div>
         <div style="font-size:.85rem;color:${saldoFinal>0?'#dc2626':'#16a34a'};font-weight:700;margin-bottom:20px">💳 Saldo atual: ${fmt(saldoFinal)}</div>
-        ${wppFinal?`<button onclick="_enviarWppComFoto()" style="display:block;width:100%;padding:14px;background:#25d366;color:#fff;border-radius:12px;font-weight:800;font-size:.95rem;text-align:center;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,.35);margin-bottom:12px">📲 ENVIAR PELO MEU WHATSAPP</button>`:''}
+        ${wppFinal?`
+          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:14px;padding:16px;margin-bottom:12px;text-align:left">
+            <div style="font-size:.7rem;font-weight:700;color:#15803d;margin-bottom:8px;text-transform:uppercase">📲 Enviar comprovante ao gerente</div>
+            ${urlFotoPublica?`<div style="font-size:.72rem;color:#15803d;margin-bottom:8px">📎 Link do comprovante será incluído na mensagem</div>`:''}
+            <button onclick="_enviarWppComFoto()" style="display:block;width:100%;padding:14px;background:#25d366;color:#fff;border-radius:12px;font-weight:800;font-size:.95rem;text-align:center;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,.35)">
+              📲 ENVIAR PELO MEU WHATSAPP
+            </button>
+          </div>`:''}
         <button onclick="fecharMod('modComprovante')" style="width:100%;padding:13px;background:#f1f5f9;border:none;border-radius:12px;font-weight:700;cursor:pointer;color:#475569;font-size:.9rem">✕ Fechar</button>
       </div>`;
   }
 }
 
 async function _enviarWppComFoto(){
-  const msg = _wppDiretoMsg;
   const num = _wppDiretoNum;
   if(!num){
     alert('⚠️ Número do gerente não encontrado.\nSalve o WhatsApp na aba ⚙️ > Meu WhatsApp.');
     return;
   }
+  // Inclui link do comprovante na mensagem para o gerente visualizar com um toque
+  let msg = _wppDiretoMsg;
+  if(_wppDiretoFoto){
+    msg += '\n\n📎 *Ver comprovante:*\n' + _wppDiretoFoto;
+  }
   const phone = '55' + String(num).replace(/\D/g,'');
-  // Abre o WhatsApp diretamente na conversa do gerente, sem seleção de app ou contato
   window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
