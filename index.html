@@ -5230,38 +5230,13 @@ async function _finalizarDepoisDoPagamento(valor, obs, nome, now, wpp){
 async function _enviarWppComFoto(){
   const msg = _wppDiretoMsg;
   const num = _wppDiretoNum;
-  const phone = '55' + String(num || '').replace(/\D/g,'');
-  const temFoto = !!_fotoBase64 && _fotoBase64.startsWith('data:') && _fotoBase64.length > 200;
-
-  // ── Tenta Web Share API (Android Chrome): compartilha texto + imagem juntos ──
-  if(temFoto && navigator.share && navigator.canShare){
-    try{
-      // Converte data URL para File
-      const arr = _fotoBase64.split(',');
-      const mime = (arr[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
-      const bstr = atob(arr[1]);
-      const u8 = new Uint8Array(bstr.length);
-      for(let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
-      const ext = mime.includes('png') ? 'png' : 'jpg';
-      const file = new File([u8], 'comprovante.' + ext, { type: mime });
-
-      const shareData = { text: msg, files: [file] };
-      if(navigator.canShare(shareData)){
-        await navigator.share(shareData);
-        return; // sucesso — usuário escolheu o WhatsApp no menu nativo
-      }
-    }catch(e){
-      // Usuário cancelou ou share falhou — continua para fallback
-      if(e.name === 'AbortError') return;
-    }
-  }
-
-  // ── Fallback: abre wa.me com texto (sem foto) ──
-  if(num){
-    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-  } else {
+  if(!num){
     alert('⚠️ Número do gerente não encontrado.\nSalve o WhatsApp na aba ⚙️ > Meu WhatsApp.');
+    return;
   }
+  const phone = '55' + String(num).replace(/\D/g,'');
+  // Abre o WhatsApp diretamente na conversa do gerente, sem seleção de app ou contato
+  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
 function _mostrarBtnWppDireto(msg, num){
